@@ -27,21 +27,12 @@ def haversine(a, b):
     r = 1 # Radius of unit sphere
     return c * r
 
-def _3D_sphere_edges(G, radius):
-    """Returns edge list of node pairs within `radius` of each other
-       using haversine function
-
-    Works without scipy, but in `O(n^2)` time.
-    """
-    # TODO This can be parallelized.
+def _3D_sphere_edges(G, radius, p):
     edges = []
     for (u, pu), (v, pv) in combinations(G.nodes(data="pos"), 2):
-        for a, b in zip(pu, pv)):
-            if (haversine(a,b)) <= radius:
-                edges.append((u, v))
-                print(u,v)
+        if sum(haversine(a,b)  p for a, b in zip(pu, pv)) <= radius  p: 
+            edges.append((u, v))
     return edges
-
 
 
 #Number of dimensions and number of vertices
