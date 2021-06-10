@@ -17,8 +17,8 @@ from math import radians, cos, sin, asin, sqrt
 #WORKING IN RADIANS
 
 def haversine(a, b):
-    lon1, lat1 = a
-    lon2, lat2 = b
+    (lon1, lat1) = a
+    (lon2, lat2) = b
     # haversine formula 
     dlon = lon2 - lon1 
     dlat = lat2 - lat1 
@@ -30,32 +30,34 @@ def haversine(a, b):
 def _3D_sphere_edges(G, radius, p):
     edges = []
     for (u, pu), (v, pv) in combinations(G.nodes(data="pos"), 2):
-        if sum(haversine(a,b)  p for a, b in zip(pu, pv)) <= radius  p: 
+        if haversine(pu,pv) <= radius:
             edges.append((u, v))
     return edges
 
 
+#WORK IN PROGRESS, DOESN'T SUPPORT dim OTHER THAN 3, SEEDING, OR OTHER METRICS YET
+def _RGG_on_sphere_generator(n, radius, dim, pos, p, seed):
+    G = nx.Graph()
+    G.add_nodes_from(range(n))
+
+    #STUFF TO GENERATE POINTS ON A SPHERE (gives pairs of spherical coordinates).
+    #latitude is in range of -pi/2 to pi/2, because this is what haversine formula expects
+    pos = {v: [2* math.pi * random.random(), ((math.acos(1-(2*random.random())))-(math.pi/2))] for v in range(n)}
+
+
+    nx.set_node_attributes(G, pos, "pos")
+
+    edges = _3D_sphere_edges(G, radius, 2)
+    G.add_edges_from(edges)
+    return G
+
 #Number of dimensions and number of vertices
 d=2
-n=10000 
-radius = 3
+n=100
 
 random.seed()
 
-G = nx.Graph()
-G.add_nodes_from(range(n))
 
-#STUFF TO GENERATE POINTS ON A SPHERE (gives pairs of spherical coordinates).
-#latitude is in range of -pi/2 to pi/2, because this is what haversine formula expects
-pos = {v: [2* math.pi * random.random(), ((math.acos(1-(2*random.random())))-(math.pi/2))] for v in range(n)}
-
-
-nx.set_node_attributes(G, pos, "pos")
-
-
-
-edges = _3D_sphere_edges(G, radius)
-G.add_edges_from(edges)
 
 
 #Initialize variables which will change often during loops to 0
@@ -64,9 +66,9 @@ counter = 0
 
 
 #Initialize values for statistical paremeters, number of trials, and number of radii tested
-trials = 1
-categories = 1
-radius_stop_value=0.05
+trials = 100
+categories = 100
+radius_stop_value=1
 
 
 #Arrays for keeping track of results.  
@@ -88,7 +90,8 @@ while radius < radius_stop_value:
 
     #Second loop handles individual trials
     while j < trials: 
-        G = nx.random_geometric_graph(n, radius, d, None, math.inf)
+        print("Completing trial ", j, " with radius of ", radius, ". ")
+        G = _RGG_on_sphere_generator(n, radius, d, None, math.inf, None)
         if nx.is_k_edge_connected(G,1) == True:
             counter = counter + 1
         j = j + 1
