@@ -1,6 +1,12 @@
-#Written by Nicholas Thevenin for NEU Math REU 2021
+#Written by Nicholas Thevenin, Maitreyee Joshi, and Bryan Vogt for NEU Math REU 2021
 #TODO:
-#add progress tracker to see how many trials are left during operation
+#-Add dimension option for spheres
+#-Add torus uniform distribution
+#-Distance functions for greater than 2D surfaces
+#-Considering tori of different major and minor radii
+#-Allow better selection of graph type as a user option
+#-GUI question mark
+#-sphere radii in user options
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -13,76 +19,110 @@ import math
 import random
 from math import radians, cos, sin, asin, sqrt
 
+#OPTIONS ---------------------  -----------------
+
+#Number of dimensions and number of vertices
+d=2
+n=1000
+
+radius = 0
+
+
+#Initialize values for statistical paremeters, number of trials, and number of radii tested
+trials = 10
+categories = 100
+radius_stop_value=1
+
+#PROGRAM ---------------------------------------
+
+#GRAPH GENERATOR FUNCTIONS
+
+#work in progress, doesn't support dim other than 3, seeding, or other metrics yet
+def _RGG_on_sphere_generator(n, radius, dim, pos, p, seed):
+    G = nx.Graph()
+    G.add_nodes_from(range(n))
+
+    #STUFF TO GENERATE POINTS ON A SPHERE (gives pairs of spherical coordinates).
+    #latitude is in range of -pi/2 to pi/2, because this is what haversine formula expects
+    pos = {v: [2* math.pi * random.random(), ((math.acos(1-(2*random.random())))-(math.pi/2))] for v in range(n)}
+
+
+    nx.set_node_attributes(G, pos, "pos")
+
+    edges = _3D_sphere_edges(G, radius, 2)
+    G.add_edges_from(edges)
+    return G
+
+#work in progress
+def _RGG_on_torus_generator(n, radius, dim, pos, p, seed):
+    G = nx.Graph()
+    G.add_nodes_from(range(n))
+
+    #TODO: Torus uniform generation
+    pos = {v: [random.random() for i in range(dim)] for v in range(n)}
+    #print(pos)
+
+    nx.set_node_attributes(G, pos, "pos")
+
+    edges = torus_edges(G, radius, 2)
+    G.add_edges_from(edges)
+    return G
+
+#DISTANCE FUNCTIONS
+
+#Calculate the distance between two points via torus (credit to DemoFox blog)
+def ToroidalDistance (a, b):
+    x1, y1 = a
+    x2, y2 = b
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+    if (dx > 0.5):
+        dx = 1.0 - dx
+ 
+    if (dy > 0.5):
+        dy = 1.0 - dy
+ 
+    return math.sqrt(dx*dx + dy*dy)
 
 #WORKING IN RADIANS
-
 def haversine(a, b):
-    lon1, lat1 = a
-    lon2, lat2 = b
+    (lon1, lat1) = a
+    (lon2, lat2) = b
     # haversine formula 
     dlon = lon2 - lon1 
     dlat = lat2 - lat1 
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     c = 2 * asin(sqrt(a)) 
-    r = 1 # Radius of unit sphere
+    r = 1/(math.sqrt(math.pi)*2) # Radius of sphere
     return c * r
 
-def _3D_sphere_edges(G, radius):
-    """Returns edge list of node pairs within `radius` of each other
-       using haversine function
+#EDGE DETERMINING FUNCTIONS
 
-    Works without scipy, but in `O(n^2)` time.
-    """
-    # TODO This can be parallelized.
+def _3D_sphere_edges(G, radius, p):
     edges = []
     for (u, pu), (v, pv) in combinations(G.nodes(data="pos"), 2):
-        for a, b in zip(pu, pv)):
-            if (haversine(a,b)) <= radius:
-                edges.append((u, v))
-                print(u,v)
+        if haversine(pu,pv) <= radius:
+            edges.append((u, v))
+    return edges
+
+def torus_edges(G, radius, p):
+    edges = []
+    for (u, pu), (v, pv) in combinations(G.nodes(data="pos"), 2):
+        if ToroidalDistance(pu,pv) <= radius:
+            edges.append((u, v))
     return edges
 
 
-
-#Number of dimensions and number of vertices
-d=2
-n=10000 
-radius = 3
-
+#Seed the random number generator
 random.seed()
 
-G = nx.Graph()
-G.add_nodes_from(range(n))
-
-#STUFF TO GENERATE POINTS ON A SPHERE (gives pairs of spherical coordinates).
-#latitude is in range of -pi/2 to pi/2, because this is what haversine formula expects
-pos = {v: [2* math.pi * random.random(), ((math.acos(1-(2*random.random())))-(math.pi/2))] for v in range(n)}
-
-
-nx.set_node_attributes(G, pos, "pos")
-
-
-
-edges = _3D_sphere_edges(G, radius)
-G.add_edges_from(edges)
-
-
 #Initialize variables which will change often during loops to 0
-radius = 0
 counter = 0
-
-
-#Initialize values for statistical paremeters, number of trials, and number of radii tested
-trials = 1
-categories = 1
-radius_stop_value=0.05
-
 
 #Arrays for keeping track of results.  
 counts_list=[]
 connectivity_list=[]
 radius_list=[]
-
 
 #Loop variables
 j=0
@@ -97,7 +137,8 @@ while radius < radius_stop_value:
 
     #Second loop handles individual trials
     while j < trials: 
-        G = nx.random_geometric_graph(n, radius, d, None, math.inf)
+        print("Completing trial ", j, " with radius of ", radius, ". ")
+        G = _RGG_on_torus_generator(n, radius, d, None, math.inf, None)
         if nx.is_k_edge_connected(G,1) == True:
             counter = counter + 1
         j = j + 1
@@ -106,6 +147,11 @@ while radius < radius_stop_value:
     radius_list.append(radius)
     #End outer loop
 
+#G = _RGG_on_torus_generator(n, 0.1, d, None, math.inf, None)
+#nx.draw_networkx_labels(G, G.nodes(data="pos"))
+#nx.draw_networkx_edges(G, G.nodes(data="pos"))
+#nx.draw(G, G.nodes(data="pos"))
+#plt.show()
 
 #Divide each count of connected graphs by number of trials to give probability
 for counts in counts_list:
@@ -117,10 +163,10 @@ threshold = pow((1/(2*d))*(np.log(n)/n),1./d)
 
 #Plot results
 plt.plot(radius_list, connectivity_list)
-if d > 1:
-    plt.plot([threshold,threshold], [0,1], linestyle = 'dashed')
-else:
-    plt.plot([(np.log(n)/n),(np.log(n)/n)], [0,1], linestyle = 'dashed')
+#if d > 1:
+#    plt.plot([threshold,threshold], [0,1], linestyle = 'dashed')
+#else:
+#    plt.plot([(np.log(n)/n),(np.log(n)/n)], [0,1], linestyle = 'dashed')
 plt.xlabel('Radius')
 plt.ylabel('Probability')
 plt.title(title)
